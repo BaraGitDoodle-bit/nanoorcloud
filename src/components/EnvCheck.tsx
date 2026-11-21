@@ -26,6 +26,7 @@ import {
   createOnDeviceModel,
   createCloudModel,
 } from "../lib/firebase.ts";
+import { loadSettings } from "../lib/settings.ts";
 
 const TEST_PROMPT = "Reply with one short sentence: what is 2 + 2?";
 
@@ -86,7 +87,10 @@ export default function EnvCheck() {
     const t0 = performance.now();
     try {
       // Model instances are created inside the click handler (spec §4).
-      const model = createCloudModel();
+      // Pass the configured cloud model (default gemini-3.5-flash-lite):
+      // the SDK default (gemini-2.5-flash-lite) is retired for new users
+      // and returns 404, so a bare createCloudModel() fails here.
+      const model = createCloudModel(loadSettings().cloudModel);
       const result = await model.generateContent(TEST_PROMPT);
       setCloudTest({
         state: "done",

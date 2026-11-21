@@ -42,8 +42,9 @@ it is unambiguous where each answer came from. A cloud judge model
 (`ONLY_IN_CLOUD`) scores the answers with structured JSON output.
 `initializeDeviceModel()` runs on the user's click before on-device
 requests. App Check protects the Gemini API (debug tokens are used for
-local development), and Remote Config supplies the routing thresholds and
-the system prompt.
+local development). Routing thresholds are adjustable sliders with
+in-code defaults (0.90 / 0.70); no system prompt is set and Remote Config
+is not used.
 
 **Features:**
 - Add real task prompts (summarize, classify, extract JSON, rewrite, Q&A) or load the five starter presets
@@ -65,8 +66,9 @@ is actually used).
 
 ## 2. Links (fill in as they become live)
 
-- Public repo: TODO — create repo under BaraGitDoodle-bit
-  (tohamubarak110@gmail.com) + push; MIT license, README complete
+- Public repo: https://github.com/BaraGitDoodle-bit/nanoorcloud
+  (public, MIT license, README complete; Day 1–5 code pushed 21 Nov 2026,
+  commit 2988bff224ea4c0858371392c2f529c48c73473b)
 - Hosted app: TODO — Firebase Hosting deploy (Day 7)
 - Demo video (YouTube, public): TODO — record Day 8 (Sat Nov 28)
 - Platform: Web/Chrome

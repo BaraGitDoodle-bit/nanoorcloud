@@ -20,7 +20,7 @@ export function loadSettings(): Settings {
       cloudModel:
         typeof parsed.cloudModel === "string" && parsed.cloudModel.trim()
           ? parsed.cloudModel.trim()
-          : undefined,
+          : DEFAULT_SETTINGS.cloudModel,
       priceInPer1M: numOr(parsed.priceInPer1M, DEFAULT_SETTINGS.priceInPer1M),
       priceOutPer1M: numOr(
         parsed.priceOutPer1M,

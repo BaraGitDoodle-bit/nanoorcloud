@@ -1,4 +1,4 @@
-/* Routewise — plain CSS, light and dark aware, no framework. */
+/* NanoOrCloud — plain CSS, light and dark aware, no framework. */
 
 :root {
   --ink: #1c2430;
@@ -203,7 +203,8 @@ body {
 }
 
 .error-text {
-  font-size: 0.85rem;  color: var(--error);
+  font-size: 0.85rem;
+  color: var(--error);
   margin-top: 4px;
   word-break: break-word;
 }
@@ -226,11 +227,42 @@ body {
   color: var(--warn);
 }
 
+/* F8: the SAMPLE banner is unmissable — amber background + border, so a
+ * bundled demo report can never be mistaken for a real run. */
+.sample-banner {
+  border: 1px solid var(--warn);
+  background: var(--warn-bg);
+  color: var(--warn);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+/* F7: the export preview <details> on the Report screen. */
+#export-ts-preview summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+#export-ts-preview pre {
+  max-height: 320px;
+}
+
 .nav-active {
   background: var(--ink);
   color: var(--bg);
   border-color: var(--ink);
   font-weight: 600;
+}
+
+/* Day 7 fix: .nav-btn:hover (0,2,0) beats .nav-active (0,1,0), so
+ * hovering the active pill set its text to var(--ink) on a var(--ink)
+ * background — an invisible label. On touch the :hover state sticks
+ * after a tap, which is why the mobile screenshot showed a blank dark
+ * pill. The active colors must win on hover too. */
+.nav-btn.nav-active:hover {
+  background: var(--ink);
+  color: var(--bg);
+  border-color: var(--ink);
 }
 
 main {

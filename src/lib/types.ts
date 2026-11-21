@@ -64,9 +64,16 @@ export interface Settings {
 
 /** Defaults from the spec: thresholds §6 (0.90 / 0.70). Prices are NOT
  *  hard-coded (spec §4) — 0 means "not set yet", and cost displays as "—"
- *  until the user enters prices. */
+ *  until the user enters prices.
+ *
+ *  Cloud model: the spec says "defaulting to the SDK default", but the
+ *  Firebase JS SDK 12.19.0 default is gemini-2.5-flash-lite, which the
+ *  official AI Logic models doc lists as deprecated (replacement
+ *  gemini-3.5-flash-lite; see firebase.google.com/docs/ai-logic/models).
+ *  The default is therefore the current replacement; the user can still
+ *  change it in the Run screen. */
 export const DEFAULT_SETTINGS: Settings = {
-  cloudModel: undefined,
+  cloudModel: "gemini-3.5-flash-lite",
   priceInPer1M: 0,
   priceOutPer1M: 0,
   qualityThreshold: 0.9,
@@ -101,4 +108,20 @@ export interface RunSnapshot {
     callsTotal: number;
     aborted: boolean;
   } | null;
+}
+
+/**
+ * Bundled demo report (src/data/sample-report.json, F8) — a recorded run
+ * rendered in the Report screen so visitors without Gemini Nano can see
+ * the product. The file is validated by loadSampleReport (export.ts) and
+ * by test/sample-report.test.ts; the UI never trusts it blindly.
+ */
+export interface SampleReport {
+  label: string;
+  note: string;
+  generatedAt: string;
+  settings: Settings;
+  tasks: Task[];
+  results: RunResult[];
+  scores: Score[];
 }

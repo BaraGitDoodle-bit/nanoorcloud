@@ -58,7 +58,7 @@ export default function App() {
           onClick={() => setScreen("tasks")}
           aria-current={screen === "tasks" ? "page" : undefined}
         >
-          3 · Tasks ({tasks.length})
+          2 · Tasks ({tasks.length})
         </button>
         <button
           type="button"
@@ -66,7 +66,7 @@ export default function App() {
           onClick={() => setScreen("run")}
           aria-current={screen === "run" ? "page" : undefined}
         >
-          2 · Run
+          3 · Run
         </button>
         <button
           type="button"
@@ -108,8 +108,8 @@ export default function App() {
       </main>
 
       <footer className="wrap muted">
-        {APP_NAME} — #BuildHybridAI 2026. Open source (MIT). Day 5: Routing
-        (F5) + savings (F6).
+        {APP_NAME} — #BuildHybridAI 2026. Open source (MIT). Day 7:
+        Polish + Firebase Hosting deploy.
       </footer>
     </>
   );

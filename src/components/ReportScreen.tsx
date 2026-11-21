@@ -16,22 +16,40 @@
 // prices live on the Run screen, volumes on the Tasks screen; this screen
 // says so when they are missing.
 //
-// Export (JSON / TypeScript) and sample report mode are Day 6 (F7/F8),
-// not this screen.
+// Export (JSON / TypeScript, F7) and sample report mode (F8) live here
+// too (Day 6): the export section renders when a report exists, and the
+// sample toggle renders the bundled demo run (src/data/sample-report.json)
+// so visitors without Gemini Nano can see the product. Sample mode uses
+// its own threshold state so moving a slider there never overwrites the
+// user's real settings; the export is labeled sample when it is one.
 // ---------------------------------------------------------------------------
 
 import { useMemo, useState } from "react";
+import {
+  buildReportExport,
+  buildRoutingConfigTs,
+  copyText,
+  downloadText,
+  loadSampleReport,
+  serializeReportJson,
+} from "../lib/export.ts";
 import {
   buildRecommendations,
   computeSavings,
 } from "../lib/routing.ts";
 import { loadSettings, saveSettings } from "../lib/settings.ts";
-import type {
-  Recommendation,
-  RunSnapshot,
-  Settings,
-  Task,
+import sampleData from "../data/sample-report.json";
+import {
+  DEFAULT_SETTINGS,
+  type Recommendation,
+  type RunSnapshot,
+  type Settings,
+  type Task,
 } from "../lib/types.ts";
+
+/** The bundled demo run, validated once at load; null if the file is
+ *  malformed (the sample button is hidden then, the app keeps working). */
+const SAMPLE = loadSampleReport(sampleData);
 
 function formatUsd(value: number): string {
   if (value >= 0.01) return `$${value.toFixed(2)}`;
@@ -77,8 +95,19 @@ export default function ReportScreen({
   snapshot: RunSnapshot | null;
 }) {
   const [settings, setSettings] = useState<Settings>(() => loadSettings());
+  const [sampleMode, setSampleMode] = useState(false);
+  const [sampleSettings, setSampleSettings] = useState<Settings>(
+    () => SAMPLE?.settings ?? { ...DEFAULT_SETTINGS },
+  );
+  const [exportStatus, setExportStatus] = useState("");
 
   function updateSettings(patch: Partial<Settings>) {
+    // Sample mode has its own threshold state — moving a slider there
+    // must not overwrite the user's real settings.
+    if (sampleMode) {
+      setSampleSettings((prev) => ({ ...prev, ...patch }));
+      return;
+    }
     setSettings((prev) => {
       const next = { ...prev, ...patch };
       saveSettings(next);
@@ -86,29 +115,116 @@ export default function ReportScreen({
     });
   }
 
-  const results = snapshot?.results ?? [];
-  const scores = useMemo(
+  const liveResults = snapshot?.results ?? [];
+  const liveScores = useMemo(
     () => Object.values(snapshot?.scores ?? {}),
     [snapshot],
   );
 
+  // Sample mode (F8): render the bundled demo run instead of the live one.
+  const inSample = sampleMode && SAMPLE != null;
+  const activeTasks = inSample ? SAMPLE.tasks : tasks;
+  const activeResults = inSample ? SAMPLE.results : liveResults;
+  const activeScores = inSample ? SAMPLE.scores : liveScores;
+  const activeSettings = sampleMode ? sampleSettings : settings;
+
   const recommendations = useMemo(
-    () => buildRecommendations(tasks, results, scores, settings),
-    [tasks, results, scores, settings],
+    () =>
+      buildRecommendations(
+        activeTasks,
+        activeResults,
+        activeScores,
+        activeSettings,
+      ),
+    [activeTasks, activeResults, activeScores, activeSettings],
   );
   const savings = useMemo(
-    () => computeSavings(tasks, recommendations, settings),
-    [tasks, recommendations, settings],
+    () => computeSavings(activeTasks, recommendations, activeSettings),
+    [activeTasks, recommendations, activeSettings],
   );
 
   const recByTask = new Map(recommendations.map((r) => [r.taskId, r]));
-  const notRun = tasks.filter((t) => !recByTask.has(t.id));
-  const hasResults = results.length > 0;
+  const notRun = activeTasks.filter((t) => !recByTask.has(t.id));
+  const hasResults = activeResults.length > 0;
   const costKnown = savings.pricesSet;
 
   function hasSuccessfulResult(taskId: string, source: "on_device" | "cloud"): boolean {
-    return results.some(
+    return activeResults.some(
       (r) => r.taskId === taskId && r.source === source && !r.error,
+    );
+  }
+
+  // F7 — the exportable report, rebuilt whenever the report changes.
+  const report = useMemo(
+    () =>
+      hasResults
+        ? buildReportExport({
+            tasks: activeTasks,
+            results: activeResults,
+            scores: activeScores,
+            recommendations,
+            savings,
+            settings: activeSettings,
+            sample: inSample,
+          })
+        : null,
+    [
+      hasResults,
+      activeTasks,
+      activeResults,
+      activeScores,
+      recommendations,
+      savings,
+      activeSettings,
+      inSample,
+    ],
+  );
+  const tsSnippet = useMemo(
+    () => (report ? buildRoutingConfigTs(report) : ""),
+    [report],
+  );
+
+  function enterSampleMode() {
+    setExportStatus("");
+    setSampleMode(true);
+  }
+  function exitSampleMode() {
+    setExportStatus("");
+    setSampleMode(false);
+  }
+
+  function onDownloadJson() {
+    if (!report) return;
+    const filename = inSample
+      ? "nanoorcloud-report-sample.json"
+      : "nanoorcloud-report.json";
+    downloadText(filename, serializeReportJson(report), "application/json");
+    setExportStatus(`Downloaded ${filename}.`);
+  }
+  async function onCopyJson() {
+    if (!report) return;
+    const ok = await copyText(serializeReportJson(report));
+    setExportStatus(
+      ok
+        ? "JSON copied to clipboard."
+        : "Copy failed — the browser blocked clipboard access; use Download instead.",
+    );
+  }
+  function onDownloadTs() {
+    if (!report) return;
+    const filename = inSample
+      ? "nanoorcloud-routing-config-sample.ts"
+      : "nanoorcloud-routing-config.ts";
+    downloadText(filename, tsSnippet, "text/plain");
+    setExportStatus(`Downloaded ${filename}.`);
+  }
+  async function onCopyTs() {
+    if (!report) return;
+    const ok = await copyText(tsSnippet);
+    setExportStatus(
+      ok
+        ? "TypeScript routing config copied to clipboard."
+        : "Copy failed — the browser blocked clipboard access; use Download instead.",
     );
   }
 
@@ -123,10 +239,42 @@ export default function ReportScreen({
         recommendations and the savings live.
       </p>
 
+      {inSample && SAMPLE && (
+        <p className="status sample-banner" id="sample-banner">
+          <strong>SAMPLE REPORT</strong> — this is bundled demo data, not
+          a run from this browser. {SAMPLE.note} Run your own tasks on the
+          Run screen to get a real report.
+        </p>
+      )}
+
+      <div className="btn-row">
+        {SAMPLE && !sampleMode && (
+          <button
+            type="button"
+            className="secondary"
+            id="view-sample-btn"
+            onClick={enterSampleMode}
+          >
+            View a sample report
+          </button>
+        )}
+        {sampleMode && (
+          <button
+            type="button"
+            className="secondary"
+            id="exit-sample-btn"
+            onClick={exitSampleMode}
+          >
+            Back to my report
+          </button>
+        )}
+      </div>
+
       {!hasResults && (
         <p className="status warn" id="no-report-data">
           No run results yet — run tasks on the Run screen first.
-          Recommendations and savings appear here after a run.
+          Recommendations and savings appear here after a run. Or view the
+          sample report above to see what a finished report looks like.
         </p>
       )}
 
@@ -140,7 +288,7 @@ export default function ReportScreen({
                 min="0.5"
                 max="1"
                 step="0.05"
-                value={settings.qualityThreshold}
+                value={activeSettings.qualityThreshold}
                 onChange={(e) =>
                   updateSettings({
                     qualityThreshold: Number(e.target.value),
@@ -150,7 +298,7 @@ export default function ReportScreen({
                 aria-label="Quality threshold for the on-device route"
               />
               <span className="muted">
-                {pct(settings.qualityThreshold)} (spec default 90%)
+                {pct(activeSettings.qualityThreshold)} (spec default 90%)
               </span>
             </label>
             <label>
@@ -160,7 +308,7 @@ export default function ReportScreen({
                 min="0.5"
                 max="1"
                 step="0.05"
-                value={settings.escalateThreshold}
+                value={activeSettings.escalateThreshold}
                 onChange={(e) =>
                   updateSettings({
                     escalateThreshold: Number(e.target.value),
@@ -170,7 +318,7 @@ export default function ReportScreen({
                 aria-label="Escalate threshold for trying on-device first"
               />
               <span className="muted">
-                {pct(settings.escalateThreshold)} (spec default 70%)
+                {pct(activeSettings.escalateThreshold)} (spec default 70%)
               </span>
             </label>
             <div>
@@ -198,7 +346,7 @@ export default function ReportScreen({
             </thead>
             <tbody>
               {recommendations.map((rec) => {
-                const task = tasks.find((t) => t.id === rec.taskId);
+                const task = activeTasks.find((t) => t.id === rec.taskId);
                 return (
                   <tr key={rec.taskId}>
                     <td>{task?.name ?? rec.taskId}</td>
@@ -281,7 +429,7 @@ export default function ReportScreen({
               </thead>
               <tbody>
                 {savings.perTask.map((row) => {
-                  const task = tasks.find((t) => t.id === row.taskId);
+                  const task = activeTasks.find((t) => t.id === row.taskId);
                   return (
                     <tr key={row.taskId}>
                       <td>{task?.name ?? row.taskId}</td>
@@ -326,13 +474,60 @@ export default function ReportScreen({
             deterministic checks and ignore the extra latency of
             escalations.
           </p>
+
+          <h3>Export</h3>
+          <p className="muted">
+            Download or copy this report as JSON, or as a TypeScript
+            routing config you can paste into your own app.
+            {inSample
+              ? " This exports the SAMPLE report, labeled as such."
+              : ""}
+          </p>
+          <div className="btn-row" id="export-buttons">
+            <button
+              type="button"
+              className="secondary"
+              id="export-json-download"
+              onClick={onDownloadJson}
+            >
+              Download JSON
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              id="export-json-copy"
+              onClick={onCopyJson}
+            >
+              Copy JSON
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              id="export-ts-download"
+              onClick={onDownloadTs}
+            >
+              Download routing config (.ts)
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              id="export-ts-copy"
+              onClick={onCopyTs}
+            >
+              Copy routing config
+            </button>
+          </div>
+          {exportStatus && (
+            <p className="status" id="export-status" role="status">
+              {exportStatus}
+            </p>
+          )}
+          <details id="export-ts-preview">
+            <summary>Preview the TypeScript routing config</summary>
+            <pre className="result-text">{tsSnippet}</pre>
+          </details>
         </>
       )}
-
-      <p className="muted">
-        Export (JSON / TypeScript) and sample report mode land on Day 6
-        (F7 / F8).
-      </p>
     </section>
   );
 }

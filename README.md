@@ -15,7 +15,7 @@ latency and estimated cost side by side, and gets a per-task routing
 recommendation (on-device / escalate / cloud) with projected monthly
 savings and an exportable config.
 
-## Status (Day 5 — Sat Nov 21)
+## Status (Day 7 — Sat Nov 21)
 
 - [x] F1 Environment check — Chrome version, on-device availability, one
   on-device call and one cloud call returning text in the browser.
@@ -41,10 +41,23 @@ savings and an exportable config.
   pass over the brand constant, page title, package name, README, submit
   pack, video script, header/footer. Directory and Firebase web app
   nickname stay `routewise` / `routewise-web` (internal).
-- [ ] F7 Report and export (Day 6)
-- [ ] F8 Sample report mode (Day 6)
+- [x] F7 Report and export (Day 6) — one-page report exports JSON
+  (download / copy) and a TypeScript routing config (download / copy,
+  with a preview), mapping on_device → PREFER_ON_DEVICE, cloud →
+  ONLY_IN_CLOUD, escalate → "ESCALATE" (honestly not an InferenceMode).
+  Exports are labeled sample when they come from the sample report.
+- [x] F8 Sample report mode (Day 6) — a recorded 5-task run bundled as
+  `src/data/sample-report.json` (2 on-device, 1 escalate, 2 cloud),
+  rendered in the Report screen under an unmissable SAMPLE banner, with
+  its own threshold state so it never touches the user's settings.
+  Works with no run and no on-device model.
 
-Day 5 verification: npm test 73/73 PASS, npm run build PASS, headless-Chrome UI check 50/50 PASS, 0 unexpected errors.
+Day 6 verification: npm test 86/86 PASS, npm run build PASS, headless-Chrome UI check 69/69 PASS, 0 unexpected errors.
+
+Day 7 verification: npm test 86/86 PASS, npm run build PASS (dist JS
+394.54 kB), headless-Chrome UI check 69/69 PASS, clean-profile test
+19/19 PASS, 0 unexpected errors. Deploy prep done (firebase.json +
+.firebaserc); the deploy itself is waiting on the Firebase CLI login.
 
 See `SUBMIT_PACK.md` for the Devpost text and `VIDEO_SCRIPT.md` for the
 demo video plan. Full 9-day plan: `Routewise_Product_Spec_and_9-Day_Build_Plan.md`
@@ -52,7 +65,14 @@ in the project root (one level up).
 
 ## Screenshots
 
-TODO — add after the first hosted deploy (Day 7).
+TODO — add after the first hosted deploy (Day 7; the deploy itself is
+waiting on the Firebase CLI login, so the hosted URL is still pending).
+
+## Try it out
+
+Hosted URL: pending — the Firebase Hosting deploy (Day 7) is waiting on
+the Firebase CLI login. Until then, run it locally (`npm run dev`) or
+open the sample report in the app, which needs no model and no login.
 
 ## Requirements
 
@@ -73,6 +93,11 @@ TODO — add after the first hosted deploy (Day 7).
 3. For local development, run the app, copy the **App Check debug token**
    shown on the Setup screen, and register it in the console under
    **Security > App Check > Apps > Manage debug tokens** (routewise-web app).
+   The same flow works on the hosted demo: open the hosted URL with
+   `?debugAppCheck`, copy the token from the Setup screen, register it
+   in the console for the routewise-web app, then reload. Each browser
+   mints its own token — the token from one browser does not work in
+   another.
 4. Never commit `.env` or App Check debug tokens (both are gitignored).
 
 ## Run
@@ -87,11 +112,12 @@ node verification/verify.mjs   # headless-Chrome UI checks + screenshots
 
 ## Deploy
 
-Firebase Hosting (config in `firebase.json`, `public: dist`):
+Firebase Hosting (config in `firebase.json`, `public: dist` — the
+default project is pinned in `.firebaserc` to `offrecord-4161f`):
 
 ```bash
 npm run build
-firebase deploy --only hosting
+firebase deploy --only hosting --project offrecord-4161f
 ```
 
 ## How Firebase AI Logic is used
@@ -108,9 +134,8 @@ All AI calls go through the Firebase AI Logic Hybrid Inference SDK
 - The judge is a cloud model (`ONLY_IN_CLOUD`) scoring answers with
   structured JSON output.
 - **App Check** protects the Gemini API (debug tokens for local dev).
-- **Remote Config** supplies the routing threshold, default mode, and
-  system prompt (in-code defaults, so the app works before console values
-  are set).
+- Routing thresholds are adjustable sliders with in-code defaults (0.90 /
+  0.70); no system prompt is set and Remote Config is not used.
 
 API names were verified against the official docs
 (https://firebase.google.com/docs/ai-logic/hybrid-on-device-inference)

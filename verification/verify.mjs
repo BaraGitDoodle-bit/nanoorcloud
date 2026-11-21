@@ -48,7 +48,12 @@ const browser = await chromium.launch({
   args: ["--no-sandbox"],
 });
 const failures = [];
-const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+const context = await browser.newContext({
+  viewport: { width: 1280, height: 800 },
+  // Day 6: the export copy buttons use navigator.clipboard.
+  permissions: ["clipboard-read", "clipboard-write"],
+});
+const page = await context.newPage();
 // Network noise: this VM's headless Chrome cannot do TLS to Google, so the
 // Firebase SDK's on-load requests (reCAPTCHA, Installations, App Check,
 // Remote Config) fail with net::ERR_* / "Failed to fetch". Those are
@@ -133,7 +138,7 @@ check(
 );
 
 // ---- Day 2: Run screen / F3 ----
-await page.locator("nav button", { hasText: "2 · Run" }).click();
+await page.locator("nav button", { hasText: "3 · Run" }).click();
 await page.waitForTimeout(800);
 check(
   "Run screen heading shown",
@@ -296,9 +301,127 @@ check(
   "quality slider updates live (label follows to 95%)",
   (await page.locator("#report-thresholds").textContent()).includes("95%"),
 );
+
+// ---- Day 6: Export / F7 + sample mode / F8 (on the real report) ----
+// The sample toggle must be visible even with real results, and entering
+// sample mode must swap in the bundled demo run (mixed routes, priced
+// savings) without touching the real snapshot.
+check(
+  "view-sample button present on the Report screen",
+  await page.locator("#view-sample-btn").isVisible(),
+);
+await page.locator("#view-sample-btn").click();
+await page.waitForTimeout(500);
+check(
+  "sample banner visible and labeled SAMPLE",
+  (await page.locator("#sample-banner").textContent()).match(/SAMPLE REPORT/i) != null,
+  (await page.locator("#sample-banner").textContent()).slice(0, 120),
+);
+const sampleRecRows = await page
+  .locator("#recommendations-table tbody tr")
+  .count();
+check("sample report shows 5 recommendations", sampleRecRows === 5, `rows=${sampleRecRows}`);
+const sampleRecText = await page
+  .locator("#recommendations-table")
+  .textContent();
+check(
+  "sample shows mixed routes (On-device + Escalate)",
+  /On-device/.test(sampleRecText) && /Escalate/.test(sampleRecText),
+  sampleRecText.slice(0, 200),
+);
+const sampleSavings = await page.locator("#savings-summary").textContent();
+check(
+  "sample savings show dollar amounts (prices are set in the sample)",
+  /Cloud cost before routing/.test(sampleSavings) && /\$/.test(sampleSavings),
+  sampleSavings.slice(0, 160),
+);
+check(
+  "export buttons present (4)",
+  (await page.locator("#export-buttons button").count()) === 4,
+  `count=${await page.locator("#export-buttons button").count()}`,
+);
+
+// Download JSON: filename + content (must be labeled sample, 5 recs).
+const jsonDownloadPromise = page.waitForEvent("download");
+await page.locator("#export-json-download").click();
+const jsonDownload = await jsonDownloadPromise;
+check(
+  "JSON download filename (sample)",
+  jsonDownload.suggestedFilename() === "nanoorcloud-report-sample.json",
+  jsonDownload.suggestedFilename(),
+);
+const jsonText = await readFile(await jsonDownload.path(), "utf-8");
+const jsonReport = JSON.parse(jsonText);
+check(
+  "downloaded JSON is a labeled sample report (5 recommendations)",
+  jsonReport.app === "NanoOrCloud" &&
+    jsonReport.sample === true &&
+    jsonReport.recommendations.length === 5,
+  `app=${jsonReport.app} sample=${jsonReport.sample} recs=${jsonReport.recommendations.length}`,
+);
+
+// Copy JSON: status text + clipboard content.
+await page.locator("#export-json-copy").click();
+await page.waitForTimeout(400);
+const copyStatus = await page.locator("#export-status").textContent();
+const clipboardJson = await page.evaluate(() => navigator.clipboard.readText());
+check(
+  "copy JSON reports success and clipboard holds the report",
+  /copied to clipboard/i.test(copyStatus) &&
+    JSON.parse(clipboardJson).sample === true,
+  copyStatus.slice(0, 80),
+);
+
+// Copy TS: status + clipboard holds the routing config.
+await page.locator("#export-ts-copy").click();
+await page.waitForTimeout(400);
+const copyTsStatus = await page.locator("#export-status").textContent();
+const clipboardTs = await page.evaluate(() => navigator.clipboard.readText());
+check(
+  "copy TS reports success and clipboard holds the config",
+  /copied to clipboard/i.test(copyTsStatus) &&
+    /export const routingConfig/.test(clipboardTs) &&
+    /PREFER_ON_DEVICE/.test(clipboardTs),
+  copyTsStatus.slice(0, 80),
+);
+
+// Download TS: filename + content.
+const tsDownloadPromise = page.waitForEvent("download");
+await page.locator("#export-ts-download").click();
+const tsDownload = await tsDownloadPromise;
+check(
+  "TS download filename (sample)",
+  tsDownload.suggestedFilename() === "nanoorcloud-routing-config-sample.ts",
+  tsDownload.suggestedFilename(),
+);
+const tsText = await readFile(await tsDownload.path(), "utf-8");
+check(
+  "downloaded TS config has all three modes",
+  /export const routingConfig/.test(tsText) &&
+    /PREFER_ON_DEVICE/.test(tsText) &&
+    /ESCALATE/.test(tsText) &&
+    /ONLY_IN_CLOUD/.test(tsText),
+  tsText.slice(0, 160),
+);
+check(
+  "TS preview shows the config inline",
+  (await page.locator("#export-ts-preview").textContent()).match(
+    /PREFER_ON_DEVICE/,
+  ) != null,
+);
+
+// Back to my report: the real (failed-judge) report returns, banner gone.
+await page.locator("#exit-sample-btn").click();
+await page.waitForTimeout(400);
+check(
+  "exit sample returns to the real report (banner gone, Judge failed back)",
+  (await page.locator("#sample-banner").count()) === 0 &&
+    /Judge failed/.test(await page.locator("#recommendations-table").textContent()),
+);
+
 // Back to Run: the results table must be restored from the snapshot
 // (the screen unmounts on tab switches).
-await page.locator("nav button", { hasText: "2 · Run" }).click();
+await page.locator("nav button", { hasText: "3 · Run" }).click();
 await page.waitForTimeout(500);
 const restoredRows = await page
   .locator("#results-table tbody tr")
@@ -310,7 +433,7 @@ check(
 );
 
 // ---- Day 3: Tasks editor / F2 ----
-await page.locator("nav button", { hasText: "3 · Tasks" }).click();
+await page.locator("nav button", { hasText: "2 · Tasks" }).click();
 await page.waitForTimeout(500);
 check(
   "Tasks editor heading shown",
@@ -351,7 +474,7 @@ check(
 );
 
 // The Run screen must use the edited list, not hard-coded presets.
-await page.locator("nav button", { hasText: "2 · Run" }).click();
+await page.locator("nav button", { hasText: "3 · Run" }).click();
 await page.waitForTimeout(500);
 check(
   "Run screen lists the edited task list (6 tasks)",
@@ -363,11 +486,11 @@ check(
 );
 
 // Persistence: reload — the added task must still be there.
-await page.locator("nav button", { hasText: "3 · Tasks" }).click();
+await page.locator("nav button", { hasText: "2 · Tasks" }).click();
 await page.waitForTimeout(300);
 await page.reload({ waitUntil: "networkidle" });
 await page.waitForTimeout(800);
-await page.locator("nav button", { hasText: "3 · Tasks" }).click();
+await page.locator("nav button", { hasText: "2 · Tasks" }).click();
 await page.waitForTimeout(500);
 check(
   "added task persists across reload (6 tasks)",
@@ -418,12 +541,50 @@ check(
     ),
   `count=${await page.locator("#task-list li").count()}`,
 );
-await page.locator("nav button", { hasText: "2 · Run" }).click();
+await page.locator("nav button", { hasText: "3 · Run" }).click();
 await page.waitForTimeout(500);
 check(
   "Run screen back to 5 tasks after delete",
   (await page.locator("#run-task-list li").count()) === 5,
   `count=${await page.locator("#run-task-list li").count()}`,
+);
+
+// ---- Day 6: sample mode with NO run at all (fresh reload) ----
+// The snapshot is in-memory, so after a reload the Report has no real
+// results — the sample must still render, and exiting it must return
+// to the empty state.
+await page.reload({ waitUntil: "networkidle" });
+await page.waitForTimeout(800);
+await page.locator("nav button", { hasText: "4 · Report" }).click();
+await page.waitForTimeout(500);
+check(
+  "empty state shown after reload (no results yet)",
+  await page.locator("#no-report-data").isVisible(),
+);
+check(
+  "view-sample button visible with no results",
+  await page.locator("#view-sample-btn").isVisible(),
+);
+await page.locator("#view-sample-btn").click();
+await page.waitForTimeout(500);
+check(
+  "sample renders without any run (banner + 5 recommendations)",
+  (await page.locator("#sample-banner").count()) === 1 &&
+    (await page.locator("#recommendations-table tbody tr").count()) === 5,
+);
+const sampleOverflow = await page.evaluate(
+  () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+);
+check(
+  "no horizontal overflow (1280px, Report sample mode)",
+  sampleOverflow <= 0,
+  `overflow=${sampleOverflow}px`,
+);
+await page.locator("#exit-sample-btn").click();
+await page.waitForTimeout(400);
+check(
+  "exit sample returns to the empty state",
+  await page.locator("#no-report-data").isVisible(),
 );
 
 // No horizontal overflow at desktop width.
@@ -438,7 +599,7 @@ await page.screenshot({ path: OUT + "desktop-1280.png", fullPage: true });
 // as well as the page in general.
 await page.setViewportSize({ width: 390, height: 844 });
 await page.waitForTimeout(400);
-await page.locator("nav button", { hasText: "3 · Tasks" }).click();
+await page.locator("nav button", { hasText: "2 · Tasks" }).click();
 await page.waitForTimeout(500);
 const mOverflow = await page.evaluate(
   () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -447,7 +608,7 @@ check("no horizontal overflow (390px, Tasks tab)", mOverflow <= 0, `overflow=${m
 
 // Run tab at mobile width (Score column widens the table — the CSS
 // makes the table scroll horizontally instead of overflowing the page).
-await page.locator("nav button", { hasText: "2 · Run" }).click();
+await page.locator("nav button", { hasText: "3 · Run" }).click();
 await page.waitForTimeout(500);
 const rOverflow = await page.evaluate(
   () => document.documentElement.scrollWidth - document.documentElement.clientWidth,

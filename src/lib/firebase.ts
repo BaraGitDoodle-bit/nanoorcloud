@@ -76,18 +76,40 @@ export function initFirebase(): boolean {
 
   firebaseApp = initializeApp(firebaseConfig);
 
-  // App Check: debug provider on localhost (the debug token is printed to
-  // the console and shown in the app); reCAPTCHA v3 in production. The
-  // debug token must be registered in the Firebase console (Security >
-  // App Check > Manage debug tokens) for the routewise-web app.
-  // When self.FIREBASE_APPCHECK_DEBUG_TOKEN is true, the SDK uses the debug
-  // provider instead of the configured one.
+  // App Check: debug provider on localhost (the debug token is generated
+  // per browser and shown on the Setup screen); reCAPTCHA v3 in
+  // production. The debug token must be registered in the Firebase
+  // console (Security > App Check > Manage debug tokens) for the
+  // routewise-web app. When self.FIREBASE_APPCHECK_DEBUG_TOKEN is a
+  // string, the SDK uses that string as the debug token — so we set a
+  // stable per-browser token (generated once, kept in localStorage)
+  // instead of `true`, which makes the SDK mint an unreadable one that
+  // only appears in the DevTools console. Nothing is committed: the
+  // token is generated at runtime, per browser.
   const isLocal =
     location.hostname === "localhost" ||
     location.hostname === "127.0.0.1" ||
     new URLSearchParams(location.search).has("debugAppCheck");
   if (isLocal) {
-    self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+    const STORAGE_KEY = "routewise-debug-token";
+    let token: string | null = null;
+    try {
+      token = localStorage.getItem(STORAGE_KEY);
+    } catch {
+      token = null;
+    }
+    if (!token || token.length < 10) {
+      token =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `debug-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+      try {
+        localStorage.setItem(STORAGE_KEY, token);
+      } catch {
+        // Private mode: the token still works for this session.
+      }
+    }
+    self.FIREBASE_APPCHECK_DEBUG_TOKEN = token;
   }
   try {
     initializeAppCheck(firebaseApp, {
