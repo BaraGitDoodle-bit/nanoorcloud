@@ -1,0 +1,493 @@
+/* Routewise — plain CSS, light and dark aware, no framework. */
+
+:root {
+  --ink: #1c2430;
+  --muted: #5b6675;
+  --line: #dfe4ea;
+  --bg: #f7f8fa;
+  --card: #ffffff;
+  --accent: #1a73e8;
+  --accent-dark: #1557b0;
+  --ok: #137333;
+  --ok-bg: #e6f4ea;
+  --warn: #8a6d00;
+  --warn-bg: #fef7e0;
+  --error: #b3261e;
+  --error-bg: #fdecea;
+  --device: #137333;
+  --device-bg: #e6f4ea;
+  --cloud: #7c4dff;
+  --cloud-bg: #f1eaff;
+  --radius: 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #e8eaed;
+    --muted: #9aa0a6;
+    --line: #3c4043;
+    --bg: #202124;
+    --card: #2d2e30;
+    --accent: #8ab4f8;
+    --accent-dark: #aecbfa;
+    --ok: #81c995;
+    --ok-bg: #1e3a24;
+    --warn: #fdd663;
+    --warn-bg: #3d3405;
+    --error: #f28b82;
+    --error-bg: #4a1d18;
+    --device: #81c995;
+    --device-bg: #1e3a24;
+    --cloud: #c4b5fd;
+    --cloud-bg: #2e2456;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+  line-height: 1.55;
+}
+
+.wrap {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+.site-header {
+  background: var(--ink);
+  color: var(--bg);
+  padding: 28px 0 24px;
+}
+
+.site-header h1 {
+  margin: 0 0 4px;
+  font-size: 2rem;
+  letter-spacing: -0.02em;
+}
+
+.tagline {
+  margin: 0;
+  opacity: 0.85;
+}
+
+.screen-nav {
+  display: flex;
+  gap: 8px;
+  padding-top: 16px;
+  flex-wrap: wrap;
+}
+
+.nav-item {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 14px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.nav-btn {
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.nav-btn:hover {
+  color: var(--ink);
+  border-color: var(--muted);
+}
+
+/* --- Run screen (F3) --- */
+
+.settings-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.settings-row label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.settings-row input {
+  font: inherit;
+  font-weight: 400;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  width: 100%;
+}
+
+.settings-row input:disabled {
+  opacity: 0.55;
+}
+
+.task-list {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.run-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin: 14px 0;
+}
+
+.secondary {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 18px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.secondary:hover {
+  border-color: var(--muted);
+}
+
+#run-progress {
+  margin: 12px 0;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+#run-progress progress {
+  flex: 1;
+  height: 10px;
+}
+
+.results-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 0.9rem;
+}
+
+.results-table th,
+.results-table td {
+  border: 1px solid var(--line);
+  padding: 8px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.results-table th {
+  background: var(--bg);
+}
+
+.results-table details summary {
+  cursor: pointer;
+}
+
+.output-cell {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.error-text {
+  font-size: 0.85rem;  color: var(--error);
+  margin-top: 4px;
+  word-break: break-word;
+}
+
+/* F4: small detail lines inside a Score cell (failed checks, judge
+ * rationale, A/B note). Muted, wraps like the other cell text. */
+.score-detail {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-top: 4px;
+  word-break: break-word;
+}
+
+.pill-cloud {
+  background: var(--cloud-bg);
+  color: var(--cloud);
+}
+
+.status.warn {
+  color: var(--warn);
+}
+
+.nav-active {
+  background: var(--ink);
+  color: var(--bg);
+  border-color: var(--ink);
+  font-weight: 600;
+}
+
+main {
+  padding: 16px 0 40px;
+  display: grid;
+  /* minmax(0, 1fr) — not `auto`: an auto track cannot shrink below its
+     items' min-content, so a wide child (e.g. the results table) blows
+     the whole page out to ~560px on mobile. The table scrolls internally
+     instead (see .results-table in the media query below). */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px;
+}
+
+.card h2 {
+  margin: 0 0 8px;
+}
+
+.card h3 {
+  margin: 0 0 6px;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.status-list {
+  margin: 12px 0;
+  display: grid;
+  gap: 12px;
+}
+
+.status-list > div {
+  display: grid;
+  grid-template-columns: 190px 1fr;
+  gap: 4px 12px;
+  align-items: baseline;
+}
+
+.status-list dt {
+  font-weight: 600;
+}
+
+.status-list dd {
+  margin: 0;
+}
+
+.pill {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.pill-ok {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+
+.pill-warn {
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+
+.pill-error {
+  background: var(--error-bg);
+  color: var(--error);
+}
+
+.pill-muted {
+  background: var(--line);
+  color: var(--muted);
+}
+
+.test-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.test-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+
+.primary {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 18px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.primary:hover:not(:disabled) {
+  background: var(--accent-dark);
+}
+
+.primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.status {
+  margin: 12px 0 0;
+  min-height: 1.4em;
+  font-size: 0.95rem;
+}
+
+.status.ok {
+  color: var(--ok);
+}
+
+.status.error {
+  color: var(--error);
+}
+
+.result-text {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.9rem;
+  margin: 8px 0 0;
+  max-height: 220px;
+  overflow: auto;
+}
+
+code {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0 4px;
+  font-size: 0.85em;
+}
+
+footer {
+  padding-bottom: 32px;
+  text-align: center;
+}
+
+/* --- Tasks editor (F2) --- */
+
+.task-editor-list {
+  list-style: none;
+  margin: 12px 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.task-editor-list li {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.task-prompt-preview {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.85rem;
+  margin-top: 4px;
+}
+
+.task-row-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.task-form {
+  display: grid;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.task-form label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.task-form input,
+.task-form select,
+.task-form textarea {
+  font: inherit;
+  font-weight: 400;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  width: 100%;
+  resize: vertical;
+}
+
+.btn-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+
+.danger {
+  background: var(--error);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 18px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.danger:hover {
+  opacity: 0.85;
+}
+
+#task-form-errors {
+  margin: 12px 0;
+  padding-left: 20px;
+}
+
+@media (max-width: 640px) {
+  .status-list > div {
+    grid-template-columns: 1fr;
+  }
+
+  .test-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-row {
+    grid-template-columns: 1fr;
+  }
+
+  .results-table {
+    display: block;
+    overflow-x: auto;
+  }
+}

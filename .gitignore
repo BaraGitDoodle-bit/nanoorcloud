@@ -1,0 +1,18 @@
+# Dependencies and build output
+node_modules/
+dist/
+
+# Environment / secrets — never commit these
+.env
+.env.local
+.env.*.local
+
+# Verification artefacts
+verification/*.png
+verification/node-verify-result.json
+
+# Misc
+*.log
+.DS_Store
+
+*.tsbuildinfo
